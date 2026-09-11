@@ -8,19 +8,19 @@
 # WhatsApp Baileys Edgar
 
 <p>
-  <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
+  <img src="https://img.shields.io/badge/Node.js-%3E%3D20-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" />
   <img src="https://img.shields.io/badge/WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" />
   <img src="https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logo=socketdotio&logoColor=white" />
   <img src="https://img.shields.io/badge/Open%20Source-FF4500?style=for-the-badge&logo=github&logoColor=white" />
   <img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" />
 </p>
 
-**Open-source WhatsApp automation library — no browser required.**
+**Open-source WhatsApp automation library — no browser required.**  
 Built on WebSocket for speed, stability, and full multi-device support.
 
 <br/>
 
-[Installation](#getting-started) • [Documentation](#sendmessage-documentation) • [Features](#main-features) • [Telegram Owner](https://t.me/chicaatractiva) • [Channel](https://t.me/edgar_information)
+[Installation](#getting-started) • [Features](#main-features) • [Stability](#stability--disconnect-handling) • [Telegram Owner](https://t.me/chicaatractiva) • [Channel](https://t.me/edgar_information)
 
 </div>
 
@@ -28,15 +28,30 @@ Built on WebSocket for speed, stability, and full multi-device support.
 
 ## What is Baileys Edgar?
 
-**WhatsApp Baileys Edgar** is a powerful, open-source library for developers who need reliable WhatsApp automation without the overhead of a browser. Powered by **WebSocket technology**, it connects directly to WhatsApp's multi-device protocol — no Selenium, no Puppeteer, no headless Chrome.
+**WhatsApp Baileys Edgar** (`@anjaiedgar/Lbail`) is a powerful, open-source WhatsApp Web library built on top of the Baileys protocol stack — extended with features not found in any other public fork. Connects directly to WhatsApp's multi-device WebSocket protocol. No Selenium, no Puppeteer, no browser overhead.
 
-Actively maintained with continuous improvements to **pairing stability**, **session management**, and **WhatsApp multi-device compatibility**.
+> **Node.js ≥ 20 required.**
 
-Perfect for:
-- Business bots & chat automation
-- Customer service systems
-- Broadcast & notification tools
-- E-commerce integrations
+---
+
+## Getting Started
+
+```bash
+npm install @anjaiedgar/Lbail
+```
+
+```javascript
+import { makeWASocket, useMultiFileAuthState } from '@anjaiedgar/Lbail'
+
+const { state, saveCreds } = await useMultiFileAuthState('auth_info')
+const sock = makeWASocket({
+    auth: state,
+    syncFullHistory: false,  // skip history sync — bot works immediately
+    aiLabel: true,           // stamp messages with AI bot marker (default: true)
+})
+
+sock.ev.on('creds.update', saveCreds)
+```
 
 ---
 
@@ -44,152 +59,406 @@ Perfect for:
 
 | Feature | Description |
 |---|---|
-| **No Message History Required** | Runs perfectly fine without syncing or storing old chat history — connect and start sending/receiving immediately, no bulky history sync needed |
-| **All Message Types Supported** | Text, image, video, audio, document, sticker, location, contact, poll, button, list, template, product, catalog, album, event, and more — every WhatsApp message type is covered |
-| **Custom Pairing** | Stable pairing with your own codes — no disconnection issues |
-| **Interactive Messages** | Buttons, menus, native flows, and more |
-| **Session Management** | Automatic, efficient, and long-term stable |
-| **Multi-Device Support** | Fully compatible with WhatsApp's latest multi-device API |
-| **Lightweight & Modular** | Easy to integrate into any Node.js project |
-| **Secure Auth** | Improved authentication flow with fixed prior vulnerabilities |
+| **Rich Response (GenAI Bubble)** | Send Meta AI-style messages: markdown, code blocks, tables, LaTeX, maps, inline images, HTML — rendered natively as GenAI bubble in WA client |
+| **4-Factor Ban Checker** | Detect ban status via 4 independent signals: live registry, public send-page, identity-key probe, device-count signature |
+| **Username Socket (w:mex)** | Full WA username API: check availability, set, delete, pin, find by username, fetch recommendations — via WhatsApp's internal Pando/MEX GraphQL protocol |
+| **Communities Socket** | Full community management: create, link/unlink groups, manage participants, invite codes, ephemeral toggle, approval mode |
+| **noSelfSync** | Skip syncing outgoing messages to your own other devices — reduces noise and bandwidth. Includes silent-drop guard (throws 421 instead of pretending the send succeeded) |
+| **Rust-powered Crypto** | `md5`, `hkdf`, LT-Hash anti-tampering offloaded to `whatsapp-rust-bridge` native module for raw speed |
+| **LID Mapping Store** | Persistent LID ↔ phone-number bi-directional cache with LRU eviction and in-flight dedup — prevents duplicate USync lookups |
+| **Pre-Key Manager** | Concurrency-safe Signal pre-key operations via per-key-type PQueue — no race conditions on key updates/deletions |
+| **Classify Disconnect** | Maps every WA disconnect code to `{ category, shouldReconnect, backoffMs }` — properly handles code 515 (restartRequired) as recoverable, not fatal |
+| **Rate Limiter** | Anti-spam pacing calculator: enforces per-minute/hour/day caps, burst allowance, new-chat delays, identical-message dedup |
+| **Album Message** | Send multiple images/videos as a single WA album/grid, with per-item or top-level caption and `gifPlayback` support |
+| **AI Label Config** | `aiLabel: true/false` in socket config — controls whether outgoing messages carry the `biz_bot` attribute that WA uses to render the AI icon |
+| **USync Username Protocol** | Username resolution baked into USync queries — resolve WA usernames alongside contacts in a single round-trip |
+| **Offline Node Processor** | Batch-processes pending stanzas received while offline, preventing message loss on reconnect |
+| **Identity Change Handler** | Dedicated handler for Signal identity key changes — prevents session corruption when a contact re-registers |
 
 ---
 
-## Getting Started
+## Rich Response (GenAI Bubble)
 
-Install via npm or yarn:
-
-```bash
-npm install @whiskeysockets/baileys
-# or
-yarn add @whiskeysockets/baileys
-```
-
-Then import and initialize:
+Send messages that render as Meta AI-style bubbles inside WhatsApp. Supports multiple primitives in a single message:
 
 ```javascript
-const { makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys");
+// Markdown text
+await sock.sendMessage(jid, {
+    richResponse: {
+        text: '**Hello** from *Edgar*',
+        responseId: 'optional-uuid'
+    }
+})
 
-const { state, saveCreds } = await useMultiFileAuthState("auth_info");
-const sock = makeWASocket({
-    auth: state,
-    syncFullHistory: false // no need to load message history to run
-});
+// Code block
+await sock.sendMessage(jid, {
+    richResponse: {
+        code: 'console.log("hello")',
+        language: 'javascript'
+    }
+})
 
-sock.ev.on("creds.update", saveCreds);
+// Table
+await sock.sendMessage(jid, {
+    richResponse: {
+        table: {
+            rows: [
+                ['Name', 'Age'],
+                ['Alice', '25'],
+                ['Bob', '30']
+            ]
+        }
+    }
+})
+
+// HTML (raw HTML rendered in client)
+await sock.sendMessage(jid, {
+    richResponse: {
+        text: 'fallback',
+        html: '<b>bold</b> <a href="https://example.com">link</a>'
+    }
+})
+
+// LaTeX
+await sock.sendMessage(jid, {
+    richResponse: {
+        latex: 'E = mc^2'
+    }
+})
+
+// Map / location
+await sock.sendMessage(jid, {
+    richResponse: {
+        map: {
+            latitude: -6.2,
+            longitude: 106.8,
+            zoom: 15,
+            title: 'Jakarta',
+            annotations: []
+        }
+    }
+})
+
+// Inline image
+await sock.sendMessage(jid, {
+    richResponse: {
+        imageUrl: 'https://example.com/photo.jpg'
+    }
+})
 ```
 
-> 💡 **Tip:** Set `syncFullHistory: false` (or simply leave it unset) if you don't need old chat history — the bot will still work normally for sending and receiving every supported message type without waiting for history sync.
+**Shortcut methods** (all accept `quoted` and `options`):
+
+```javascript
+await sock.sendTable(jid, 'Title', ['H1','H2'], [['A','B']], quoted)
+await sock.sendList(jid, 'Title', ['item1','item2'], quoted)
+await sock.sendCodeBlock(jid, 'print("hello")', quoted, { language: 'python' })
+await sock.sendLatex(jid, quoted, { latex: 'x^2 + y^2 = z^2' })
+await sock.sendRichMessage(jid, submessages, quoted)
+```
+
+---
+
+## Album Message
+
+Send multiple images/videos grouped into a single WA album:
+
+```javascript
+await sock.sendMessage(jid, {
+    album: [
+        { image: { url: 'https://example.com/a.jpg' } },
+        { image: { url: 'https://example.com/b.jpg' }, caption: 'caption foto kedua' },
+        { video: { url: 'https://example.com/c.mp4' }, gifPlayback: false }
+    ],
+    caption: 'caption ini otomatis ke item pertama'
+})
+```
+
+---
+
+## Ban Checker
+
+4-factor ban detection against WhatsApp's own servers — no third-party API:
+
+```javascript
+const result = await sock.checkBanStatus('628123456789')
+// or: sock.checkBanStatus('628123456789@s.whatsapp.net')
+
+console.log(result)
+// {
+//   status: 'ACTIVE' | 'PROFILE_HIDDEN' | 'LIKELY_ACTIVE' | 'BANNED' | 'OFF_WHATSAPP' | 'UNKNOWN',
+//   emoji: '🟢' | '🟡' | '🔴' | '❓',
+//   confidence: 0..1,
+//   deviceCount: number | null,
+//   registryExists: boolean | null,
+//   pageVisible: boolean | null,
+//   profileName: string | null
+// }
+```
+
+**Four factors checked:**
+- **Factor A** — Live registry (`sock.onWhatsApp`)
+- **Factor B** — Public send-page title/image probe (`api.whatsapp.com`)
+- **Factor C** — Identity-key device probe via USync (strongest: banned numbers have their keys destroyed)
+- **Factor D** — Device-count signature (2+ = ACTIVE, 1 generic = likely BANNED, 0 = BANNED/OFF_WA)
+
+---
+
+## Username Socket (w:mex)
+
+Full WA `@username` API via WhatsApp's internal Pando/MEX GraphQL protocol, query IDs sourced from Java decompile of WA 2.26.17.2:
+
+```javascript
+// Check availability
+const res = await sock.checkUsername('myusername')
+// { available: true, username } or { available: false, suggestions: [...] }
+
+// Set username
+await sock.setUsername('myusername')
+
+// Delete username
+await sock.deleteUsername()
+
+// Get your own username
+const mine = await sock.getMyUsername()
+
+// Pin/unpin username
+await sock.setUsernamePin(true)
+
+// Find user by username
+const user = await sock.findUserByUsername('someuser', pin)
+
+// Fetch usernames of your contacts in batch
+const usernames = await sock.fetchContactUsernames('628xxx@s.whatsapp.net', '628yyy@s.whatsapp.net')
+
+// Get username suggestions
+const suggestions = await sock.getUsernameRecommendations()
+```
+
+---
+
+## Communities Socket
+
+```javascript
+// Create community
+const community = await sock.communityCreate('Community Name', 'Description')
+
+// Create group inside community
+await sock.communityCreateGroup('Group Name', [jid1, jid2], communityJid)
+
+// Link/unlink existing group
+await sock.communityLinkGroup(groupJid, communityJid)
+await sock.communityUnlinkGroup(groupJid, communityJid)
+
+// Fetch linked groups
+const groups = await sock.communityFetchLinkedGroups(communityJid)
+
+// Manage participants
+await sock.communityParticipantsUpdate(communityJid, [jid1], 'add')   // 'add' | 'remove' | 'promote' | 'demote'
+
+// Invite code
+const code = await sock.communityInviteCode(communityJid)
+await sock.communityRevokeInvite(communityJid)
+await sock.communityAcceptInvite(code)
+
+// Settings
+await sock.communityToggleEphemeral(communityJid, 86400)   // seconds
+await sock.communityMemberAddMode(communityJid, 'admin_add')
+await sock.communityJoinApprovalMode(communityJid, 'on')
+await sock.communityUpdateSubject(communityJid, 'New Name')
+await sock.communityUpdateDescription(communityJid, 'New Desc')
+await sock.communityLeave(communityJid)
+```
+
+---
+
+## noSelfSync
+
+Skip syncing outgoing messages to your own linked devices. Useful for high-volume bots where sync traffic is unnecessary:
+
+```javascript
+await sock.sendMessage(jid, { text: 'hello' }, { noSelfSync: true })
+
+// Also supported in all shortcut methods:
+await sock.sendTable(jid, title, headers, rows, quoted, { noSelfSync: true })
+await sock.sendCodeBlock(jid, code, quoted, { noSelfSync: true })
+```
+
+> **Safe by design:** if `noSelfSync` would accidentally drop all recipients (e.g. messaging yourself), the guard kicks in and delivers normally. If the other party has zero resolved devices, it throws `Boom 421` instead of silently pretending the message was sent.
+
+---
+
+## Stability & Disconnect Handling
+
+Edgar ships `classifyDisconnect()` — maps every WA status code into an actionable result:
+
+```javascript
+import { classifyDisconnect } from '@anjaiedgar/Lbail'
+
+sock.ev.on('connection.update', ({ connection, lastDisconnect }) => {
+    if (connection === 'close') {
+        const code = lastDisconnect?.error?.output?.statusCode
+        const info = classifyDisconnect(code)
+
+        console.log(info)
+        // {
+        //   category: 'fatal' | 'recoverable' | 'rate-limited' | 'unknown',
+        //   shouldReconnect: boolean,
+        //   backoffMs: number,    // ms to wait before reconnecting
+        //   message: string,
+        //   code: number
+        // }
+
+        if (info.shouldReconnect) {
+            setTimeout(() => reconnect(), info.backoffMs)
+        }
+    }
+})
+```
+
+**Code map:**
+
+| Code | Category | Reconnect | Backoff |
+|---|---|---|---|
+| 401, 440 | fatal | ❌ | — |
+| 515 | recoverable | ✅ | 0 ms (immediate) |
+| 405 | fatal | ❌ | — |
+| 408 | recoverable | ✅ | 30 s |
+| 503 | recoverable | ✅ | 5 min |
+| 429 | rate-limited | ✅ | 60 s |
+| 500 | recoverable | ✅ | 5 s |
+| 503 | recoverable | ✅ | 10 s |
+| Graceful close | recoverable | ✅ | 2 s |
+| Unknown | unknown | ✅ | 15 s |
+
+> **Important:** Code 515 (`restartRequired`) is WhatsApp's normal post-pairing signal. Edgar correctly treats it as recoverable with 0 ms backoff — other forks incorrectly mark it as fatal, causing bots to stop after first pair.
+
+---
+
+## Rate Limiter
+
+Anti-ban pacing calculator — wire into your send path before each `sendMessage`:
+
+```javascript
+import { RateLimiter } from '@anjaiedgar/Lbail'
+
+const limiter = new RateLimiter({
+    maxPerMinute: 8,
+    maxPerHour: 200,
+    maxPerDay: 1500,
+    minDelayMs: 1500,
+    maxDelayMs: 5000,
+    newChatDelayMs: 3000,
+    maxIdenticalMessages: 3,
+    burstAllowance: 3
+})
+
+async function safeSend(jid, content) {
+    const delay = await limiter.getDelay(jid, content)
+    if (delay === -1) throw new Error('Rate limit exceeded — blocked')
+    if (delay > 0) await new Promise(r => setTimeout(r, delay))
+    await sock.sendMessage(jid, content)
+    limiter.record(jid, content)
+}
+```
 
 ---
 
 ## Supported Message Types
 
-Baileys Edgar can send and receive **every single WhatsApp message type that exists** — nothing is left out. Main ones include:
+Every WhatsApp message type is covered:
 
 - Text, image, video, audio, document, sticker, GIF/video note (PTV)
 - Location & live location
 - Contact / vCard
 - Poll (create, vote, add option, poll result)
-- Button, list, template & interactive (native flow) messages
-- Album (multiple images in one message)
+- Button, list, template, interactive (native flow)
+- Album (multiple media in one message)
 - Event & event invite
-- Group invite, group status & group mention
+- Group invite, group status, group mention
 - Spoiler (blurred) messages
 - Reaction & edited message
 - View-once media
 - Status/story mention & reply
 - Newsletter / channel messages
-- Payment & payment invite messages
-
-Plus **all WhatsApp Business message types** — product message, catalog, order, invoice, business profile, and more — all fully supported.
-
-In short: **every message type in the WhatsApp protocol is supported**, whether it's a common everyday message or a rare/business-only type.
+- Payment & payment invite
+- All WhatsApp Business types: product, catalog, order, invoice, business profile
 
 <details>
-<summary><b>Example: Poll message</b></summary>
-<br/>
+<summary><b>Example: Album</b></summary>
 
 ```javascript
-await sock.sendMessage(target, {
+await sock.sendMessage(jid, {
+    album: [
+        { image: { url: 'https://example.com/1.jpg' } },
+        { video: { url: 'https://example.com/2.mp4' } }
+    ],
+    caption: 'Album caption'
+})
+```
+</details>
+
+<details>
+<summary><b>Example: Poll</b></summary>
+
+```javascript
+await sock.sendMessage(jid, {
     poll: {
-        name: "Poll Title",
-        values: ["Option A", "Option B"],
-        selectableCount: 1,
-        pollVersion: 6
+        name: 'Poll Title',
+        values: ['Option A', 'Option B'],
+        selectableCount: 1
     }
-});
+})
 ```
 </details>
 
 <details>
-<summary><b>Example: Spoiler message</b></summary>
-<br/>
+<summary><b>Example: Spoiler</b></summary>
 
 ```javascript
-await sock.sendMessage(target, {
-    text: "This is a spoiler!",
+await sock.sendMessage(jid, {
+    text: 'Spoiler content',
     spoiler: true
-});
+})
 ```
 </details>
 
 <details>
-<summary><b>Example: Live location</b></summary>
-<br/>
+<summary><b>Example: Event</b></summary>
 
 ```javascript
-await sock.sendMessage(target, {
-    liveLocation: {
-        degreesLatitude: -6.2,
-        degreesLongitude: 106.8,
-        caption: "Tracking live"
+await sock.sendMessage(jid, {
+    eventMessage: {
+        name: 'Meeting',
+        description: 'Weekly sync',
+        location: { degreesLatitude: -6.2, degreesLongitude: 106.8 },
+        startTime: Math.floor(Date.now() / 1000) + 3600
     }
-});
+})
 ```
 </details>
 
 ---
 
-## Additional Functions
+## Additional Methods
 
-### Parse Incoming Extended Messages
 ```javascript
+// Parse incoming extended/special messages
 sock.ev.on('messages.upsert', ({ messages }) => {
-    const msg = messages[0];
-    const extended = sock.parseExtendedMessageContent(msg.message);
-    if (extended) {
-        console.log(extended.type, extended.data);
-    }
-});
+    const extended = sock.parseExtendedMessageContent(messages[0].message)
+    if (extended) console.log(extended.type, extended.data)
+})
+
+// Business profile
+const profile = await sock.getBusinessProfile(jid)
+await sock.updateBusinessProfile({ description: 'Open 9-5', email: 'hi@example.com', category: 'Retail' })
+
+// Get newsletter/channel JID from URL
+await sock.newsletterId('https://whatsapp.com/channel/...')
+
+// Refresh media URL for expired messages
+await sock.updateMediaMessage(message)
 ```
-
-### Business Profile
-```javascript
-const profile = await sock.getBusinessProfile(jid);
-
-await sock.updateBusinessProfile({
-    description: "We're open 9-5!",
-    email: "hello@example.com",
-    category: "Retail"
-});
-```
-
-### Get Channel ID
-```javascript
-await sock.newsletterId(url);
-```
-
-### Check Banned Number
-```javascript
-await sock.checkWhatsApp(target);
-```
-
----
-
-## SendMessage Documentation
-
-For the full list of supported payload shapes (album, event, poll result, interactive message, native flow, product message, etc.), see the code examples in `lib/Socket/messages-send.js`.
 
 ---
 
@@ -197,8 +466,8 @@ For the full list of supported payload shapes (album, event, poll result, intera
 
 <div align="center">
 
-**Telegram Owner:** [@chicaatractiva](https://t.me/chicaatractiva)
-**Official Channel:** [t.me/lawlietempire](https://t.me/lawlietempire)
+**Telegram Owner:** [@chicaatractiva](https://t.me/chicaatractiva)  
+**Official Channel:** [t.me/edgar_information](https://t.me/edgar_information)
 
 </div>
 
